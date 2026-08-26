@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}Request {{ listing.title }} — Khidmat.net{% endblock %}
+{% block content %}
+<div class="form-wrap"><div class="form-card"><p class="eyebrow">REQUEST ITEM</p><h1>{{ listing.title }}</h1><p>{{ listing.description }}</p><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary full">Send request</button></form></div></div>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}My Profile — Khidmat.net{% endblock %}
+{% block content %}
+<div class="form-wrap"><div class="form-card wide"><p class="eyebrow">YOUR PROFILE</p><h1>{{ user.get_full_name|default:user.username }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary">Save profile</button></form></div></div>
+{% endblock %}

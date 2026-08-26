@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Khidmat.net — Give what matters{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">COMMUNITY • DIGNITY • KHIDMAT</p>
+    <h1>Give essentials.<br><span>Make a difference.</span></h1>
+    <p class="hero-text">Khidmat.net connects people who have essential goods to spare with people who genuinely need them.</p>
+    <div class="actions">
+      <a class="btn primary" href="{% url 'listings' %}">Find essential goods</a>
+      <a class="btn secondary" href="{% url 'create_listing' %}">Donate an item</a>
+    </div>
+  </div>
+  <div class="hero-card">
+    <div class="heart">♥</div>
+    <h3>Small acts. Real impact.</h3>
+    <p>Food, clothing, medicine, school supplies and household essentials can find their way to someone who needs them.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head"><div><p class="eyebrow">AVAILABLE NOW</p><h2>Recent donations</h2></div><a href="{% url 'listings' %}">View all →</a></div>
+  <div class="grid">
+    {% for listing in listings %}
+    <article class="card">
+      <span class="tag">{{ listing.get_category_display }}</span>
+      <h3>{{ listing.title }}</h3>
+      <p>{{ listing.description|truncatechars:120 }}</p>
+      <div class="meta"><span>📍 {{ listing.city }}</span><span>Qty: {{ listing.quantity }}</span></div>
+      <a class="card-link" href="{% url 'listing_detail' listing.pk %}">View donation →</a>
+    </article>
+    {% empty %}
+    <div class="empty">No donations have been posted yet. Be the first to help.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="how section">
+  <p class="eyebrow">HOW IT WORKS</p><h2>Simple, transparent, human.</h2>
+  <div class="steps">
+    <div><b>01</b><h3>Someone gives</h3><p>A donor posts essential goods they can share.</p></div>
+    <div><b>02</b><h3>Someone asks</h3><p>A person in need finds a relevant donation and sends a request.</p></div>
+    <div><b>03</b><h3>They connect</h3><p>The donor accepts a request and coordinates handover.</p></div>
+  </div>
+</section>
+{% endblock %}

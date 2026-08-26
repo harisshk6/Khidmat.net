@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Find Essential Goods — Khidmat.net{% endblock %}
+{% block content %}
+<div class="container page">
+  <div class="page-title"><p class="eyebrow">COMMUNITY DONATIONS</p><h1>Find what you need.</h1><p>Browse available essential goods shared by people in the community.</p></div>
+  <form class="filters" method="get">
+    <input name="q" value="{{ q }}" placeholder="Search food, clothes, medicine...">
+    <input name="city" value="{{ city }}" placeholder="City">
+    <select name="category">
+      <option value="">All categories</option>
+      <option value="food" {% if category == "food" %}selected{% endif %}>Food</option>
+      <option value="clothing" {% if category == "clothing" %}selected{% endif %}>Clothing</option>
+      <option value="medicine" {% if category == "medicine" %}selected{% endif %}>Medicine</option>
+      <option value="school" {% if category == "school" %}selected{% endif %}>School Supplies</option>
+      <option value="hygiene" {% if category == "hygiene" %}selected{% endif %}>Hygiene</option>
+      <option value="household" {% if category == "household" %}selected{% endif %}>Household</option>
+      <option value="other" {% if category == "other" %}selected{% endif %}>Other</option>
+    </select>
+    <button class="btn primary" type="submit">Search</button>
+  </form>
+  <div class="grid">
+  {% for listing in listings %}
+    <article class="card">
+      <span class="tag">{{ listing.get_category_display }}</span>
+      <h3>{{ listing.title }}</h3>
+      <p>{{ listing.description|truncatechars:150 }}</p>
+      <div class="meta"><span>📍 {{ listing.city }}</span><span>Qty: {{ listing.quantity }}</span></div>
+      <a class="card-link" href="{% url 'listing_detail' listing.pk %}">View donation →</a>
+    </article>
+  {% empty %}<div class="empty">No matching donations found.</div>{% endfor %}
+  </div>
+</div>
+{% endblock %}

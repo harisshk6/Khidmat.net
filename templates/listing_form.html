@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Donate an Item — Khidmat.net{% endblock %}
+{% block content %}
+<div class="form-wrap"><div class="form-card wide"><p class="eyebrow">GIVE ESSENTIALS</p><h1>Post a donation</h1><p>Describe what you can share so someone who needs it can find it.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary full">Post donation</button></form></div></div>
+{% endblock %}

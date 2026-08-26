@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Khidmat.net{% endblock %}
+{% block content %}
+<div class="container page"><div class="page-title"><p class="eyebrow">YOUR KHIDMAT</p><h1>Dashboard</h1><p>Manage your donations and requests.</p></div>
+<div class="dashboard-actions"><a class="btn primary" href="{% url 'create_listing' %}">+ Donate an item</a><a class="btn secondary" href="{% url 'listings' %}">Find donations</a></div>
+
+<section class="dash-section"><h2>My donations</h2>
+{% for item in my_listings %}<div class="row-card"><div><b>{{ item.title }}</b><span>{{ item.get_category_display }} · {{ item.city }}</span></div><span class="status">{{ item.get_status_display }}</span></div>{% empty %}<p class="muted">You have not posted any donations yet.</p>{% endfor %}</section>
+
+<section class="dash-section"><h2>Incoming requests</h2>
+{% for req in incoming %}<div class="row-card"><div><b>{{ req.listing.title }}</b><span>From {{ req.requester.get_full_name|default:req.requester.username }} · {{ req.created_at|date:"M d, Y" }}</span>{% if req.message %}<small>{{ req.message }}</small>{% endif %}</div><div class="row-actions"><span class="status">{{ req.get_status_display }}</span>{% if req.status == "pending" %}<a href="{% url 'update_request' req.pk 'accept' %}">Accept</a><a href="{% url 'update_request' req.pk 'reject' %}">Reject</a>{% elif req.status == "accepted" %}<a href="{% url 'update_request' req.pk 'complete' %}">Mark complete</a>{% endif %}</div></div>{% empty %}<p class="muted">No incoming requests.</p>{% endfor %}</section>
+
+<section class="dash-section"><h2>My requests</h2>
+{% for req in outgoing %}<div class="row-card"><div><b>{{ req.listing.title }}</b><span>Donor: {{ req.listing.donor.get_full_name|default:req.listing.donor.username }}</span></div><span class="status">{{ req.get_status_display }}</span></div>{% empty %}<p class="muted">You have not requested any donations.</p>{% endfor %}</section>
+</div>
+{% endblock %}
