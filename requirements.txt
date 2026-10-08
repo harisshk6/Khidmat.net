@@ -1,4 +1,4 @@
-﻿Django==6.1
+Django==6.1
 cloudinary==1.46.3
 dj-database-url==2.3.0
 psycopg==3.3.4
