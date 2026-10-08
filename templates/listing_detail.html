@@ -1,34 +1,741 @@
 {% extends "base.html" %}
+
 {% block title %}{{ listing.title }} — Khidmat.net{% endblock %}
+
 {% block content %}
-<div class="container page">
-  <a class="back" href="{% url 'listings' %}">← Back to donations</a>
-  <div class="detail">
-    <div>
-      <span class="tag">{{ listing.get_category_display }}</span>
-      <h1>{{ listing.title }}</h1>
-      <p class="lead">{{ listing.description }}</p>
-      <div class="detail-grid">
-        <div><small>LOCATION</small><strong>{{ listing.city }}</strong></div>
-        <div><small>QUANTITY</small><strong>{{ listing.quantity }}</strong></div>
-        <div><small>STATUS</small><strong>{{ listing.get_status_display }}</strong></div>
-        <div><small>DONOR</small><strong>{{ listing.donor.get_full_name|default:listing.donor.username }}</strong></div>
-      </div>
-      {% if listing.pickup_details %}<div class="notice"><b>Pickup details</b><br>{{ listing.pickup_details }}</div>{% endif %}
+
+<div class="detail-wrap">
+
+    <div class="detail-card">
+
+        {% if listing.image %}
+        <img
+            src="{{ listing.image.url }}"
+            alt="{{ listing.title }}"
+            class="donation-image"
+        >
+        {% endif %}
+
+        <p class="eyebrow">DONATION</p>
+
+        <h1>{{ listing.title }}</h1>
+
+        <p class="detail-description">
+            {{ listing.description }}
+        </p>
+
+        <div class="detail-info">
+
+            <p>
+                <strong>Category:</strong>
+                {{ listing.get_category_display }}
+            </p>
+
+            <p>
+                <strong>Quantity:</strong>
+                {{ listing.quantity }}
+            </p>
+
+            <p>
+                <strong>City:</strong>
+                {{ listing.city }}
+            </p>
+
+            <p>
+                <strong>Pickup details:</strong>
+                {{ listing.pickup_details }}
+            </p>
+
+        </div>
+
+
+        {% if listing.donor != request.user and listing.status == "available" %}
+
+        <a
+            href="{% url 'request_item' listing.pk %}"
+            class="btn primary"
+        >
+            🙏 Request This Donation
+        </a>
+
+        {% endif %}
+
+
+        <!-- DELIVERY MAP -->
+
+        <div class="delivery-section">
+
+            <h2>📍 Delivery Locations</h2>
+
+            <p class="delivery-help">
+                The map shows the donation pickup location and
+                your delivery location.
+            </p>
+
+            <div id="route-info" class="route-info">
+                🚗 Calculating route...
+            </div>
+
+            <div id="delivery-map"></div>
+
+            <div class="map-legend">
+
+                <span>
+                    🟢 Donor Pickup
+                </span>
+
+                <span>
+                    🔵 Your Location
+                </span>
+
+                <span>
+                    🟠 🚴 Volunteer
+                </span>
+
+            </div>
+
+        </div>
+
     </div>
-    <aside class="request-box">
-      <h2>Need this?</h2>
-      {% if user.is_authenticated %}
-        {% if listing.donor == user %}
-          <p>This is your donation. Manage incoming requests from your dashboard.</p>
-        {% elif listing.status == "available" %}
-          <a class="btn primary full" href="{% url 'request_item' listing.pk %}">Request this item</a>
-        {% else %}<p>This donation is no longer available.</p>{% endif %}
-      {% else %}
-        <p>Log in to request this donation.</p>
-        <a class="btn primary full" href="{% url 'login' %}?next={{ request.path }}">Log in</a>
-      {% endif %}
-    </aside>
-  </div>
+
 </div>
+
+
+<!-- MapLibre CSS -->
+
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css"
+>
+
+
+<style>
+
+.detail-wrap {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.detail-card {
+    background: white;
+    padding: 30px;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+}
+
+.donation-image {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    border-radius: 14px;
+    margin-bottom: 25px;
+}
+
+.detail-card h1 {
+    margin-bottom: 15px;
+}
+
+.detail-description {
+    color: #66736b;
+    line-height: 1.7;
+}
+
+.detail-info {
+    margin: 25px 0;
+    padding: 20px;
+    background: #f7f9f7;
+    border-radius: 12px;
+}
+
+.detail-info p {
+    margin: 8px 0;
+}
+
+.delivery-section {
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 1px solid #e4e8e3;
+}
+
+.delivery-section h2 {
+    margin-bottom: 8px;
+}
+
+.delivery-help {
+    color: #66736b;
+    margin-bottom: 18px;
+}
+
+#delivery-map {
+    width: 100%;
+    height: 450px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #e4e8e3;
+}
+
+.map-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    font-size: 14px;
+    color: #555;
+}
+
+.route-info {
+    margin-bottom: 15px;
+    padding: 12px 15px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    color: #166534;
+    font-size: 15px;
+}
+
+@media (max-width: 768px) {
+
+    .detail-card {
+        padding: 20px;
+    }
+
+    .donation-image {
+        height: 250px;
+    }
+
+    #delivery-map {
+        height: 350px;
+    }
+
+    .map-legend {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+}
+
+</style>
+
+
+<!-- MapLibre JavaScript -->
+
+<script type="module">
+
+import * as maplibregl from
+    "https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs";
+
+
+/*
+ * DONOR PICKUP LOCATION
+ */
+
+const donorLatitude =
+    parseFloat("{{ listing.pickup_latitude|default:'' }}");
+
+const donorLongitude =
+    parseFloat("{{ listing.pickup_longitude|default:'' }}");
+
+
+/*
+ * RECIPIENT LOCATION
+ */
+
+const recipientLatitude =
+    parseFloat("{{ recipient_profile.latitude|default:'' }}");
+
+const recipientLongitude =
+    parseFloat("{{ recipient_profile.longitude|default:'' }}");
+
+
+/*
+ * Check whether coordinates exist
+ */
+
+const donorLocationValid =
+    !isNaN(donorLatitude) &&
+    !isNaN(donorLongitude);
+
+const recipientLocationValid =
+    !isNaN(recipientLatitude) &&
+    !isNaN(recipientLongitude);
+
+
+/*
+ * Default map location
+ */
+
+let centerLongitude = 67.0011;
+let centerLatitude = 24.8607;
+
+
+/*
+ * If donor location exists,
+ * start there.
+ */
+
+if (donorLocationValid) {
+
+    centerLongitude = donorLongitude;
+    centerLatitude = donorLatitude;
+
+}
+
+
+/*
+ * Create map
+ */
+
+const map = new maplibregl.Map({
+
+    container: "delivery-map",
+
+    style:
+        "https://tiles.openfreemap.org/styles/liberty",
+
+    center: [
+        centerLongitude,
+        centerLatitude
+    ],
+
+    zoom: 12
+
+});
+
+
+/*
+ * Navigation controls
+ */
+
+map.addControl(
+    new maplibregl.NavigationControl(),
+    "top-right"
+);
+
+
+/*
+ * Donor marker
+ */
+
+if (donorLocationValid) {
+
+    new maplibregl.Marker({
+        color: "#16a34a"
+    })
+
+    .setLngLat([
+        donorLongitude,
+        donorLatitude
+    ])
+
+    .setPopup(
+        new maplibregl.Popup().setHTML(
+            "<strong>🟢 Donor Pickup</strong><br>" +
+            "{{ listing.pickup_details|escapejs }}"
+        )
+    )
+
+    .addTo(map);
+
+}
+
+
+/*
+ * Recipient marker
+ */
+
+if (recipientLocationValid) {
+
+    new maplibregl.Marker({
+        color: "#2563eb"
+    })
+
+    .setLngLat([
+        recipientLongitude,
+        recipientLatitude
+    ])
+
+    .setPopup(
+        new maplibregl.Popup().setHTML(
+            "<strong>🔵 Your Location</strong>"
+        )
+    )
+
+    .addTo(map);
+
+}
+
+/*
+ * Volunteer marker
+ */
+
+let volunteerMarker = null;
+
+
+/*
+ * Get volunteer's current location
+ */
+
+async function updateVolunteerMarker() {
+
+    try {
+
+        const response = await fetch(
+            "{% url 'get_volunteer_location' %}"
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Server returned HTTP " +
+                response.status
+            );
+
+        }
+
+
+        const data = await response.json();
+
+
+        /*
+         * No volunteer location yet
+         */
+
+        if (!data.success) {
+
+            console.log(
+                "Volunteer location unavailable."
+            );
+
+            return;
+
+        }
+
+
+        const latitude =
+            parseFloat(data.latitude);
+
+        const longitude =
+            parseFloat(data.longitude);
+
+
+        /*
+         * Create marker for first update
+         */
+
+        if (!volunteerMarker) {
+
+            volunteerMarker =
+                new maplibregl.Marker({
+                    color: "#f59e0b"
+                })
+
+                .setLngLat([
+                    longitude,
+                    latitude
+                ])
+
+                .setPopup(
+                    new maplibregl.Popup().setHTML(
+                        "<strong>🚴 Volunteer</strong><br>" +
+                        "Delivery rider"
+                    )
+                )
+
+                .addTo(map);
+
+        }
+
+        else {
+
+            /*
+             * Move existing marker
+             */
+
+            volunteerMarker.setLngLat([
+                longitude,
+                latitude
+            ]);
+
+        }
+
+
+        console.log(
+            "Volunteer location:",
+            latitude,
+            longitude
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Volunteer location error:",
+            error
+        );
+
+    }
+
+}
+
+
+/*
+ * Get volunteer location immediately
+ */
+
+updateVolunteerMarker();
+
+
+/*
+ * Update volunteer location every 5 seconds
+ */
+
+setInterval(
+    updateVolunteerMarker,
+    5000
+);
+
+
+/*
+ * Draw route between donor and recipient
+ */
+
+map.on("load", async function () {
+
+    /*
+     * Make sure both locations exist
+     */
+
+    if (!donorLocationValid || !recipientLocationValid) {
+
+        console.log(
+            "Both donor and recipient locations are required."
+        );
+
+        return;
+    }
+
+
+    /*
+     * Create OSRM routing URL
+     *
+     * IMPORTANT:
+     * OSRM expects:
+     *
+     * longitude,latitude
+     */
+
+    const routeUrl =
+        "https://router.project-osrm.org/route/v1/driving/" +
+
+        donorLongitude + "," +
+        donorLatitude +
+
+        ";" +
+
+        recipientLongitude + "," +
+        recipientLatitude +
+
+        "?overview=full&geometries=geojson";
+
+
+    try {
+
+        /*
+         * Ask OSRM for route
+         */
+
+        const response =
+            await fetch(routeUrl);
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Routing server returned an error."
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        /*
+         * Check whether OSRM found a route
+         */
+
+        if (
+            data.code !== "Ok" ||
+            !data.routes ||
+            data.routes.length === 0
+        ) {
+
+            throw new Error(
+                "No route was found."
+            );
+
+        }
+
+
+        /*
+         * Get the first route
+         */
+
+        const route =
+            data.routes[0];
+
+
+        /*
+         * Route distance
+         *
+         * OSRM gives meters.
+         * Convert to kilometers.
+         */
+
+        const distanceKm =
+            (route.distance / 1000).toFixed(1);
+
+
+        /*
+         * Route duration
+         *
+         * OSRM gives seconds.
+         * Convert to minutes.
+         */
+
+        const durationMinutes =
+            Math.round(route.duration / 60);
+
+
+        /*
+         * Show distance and ETA
+         */
+
+        const routeInfo =
+            document.getElementById(
+                "route-info"
+            );
+
+
+        if (routeInfo) {
+
+            routeInfo.innerHTML =
+                "🚗 <strong>" +
+                distanceKm +
+                " km</strong>" +
+                " &nbsp; • &nbsp; " +
+                "⏱️ <strong>" +
+                durationMinutes +
+                " min</strong>";
+
+        }
+
+
+        /*
+         * Add route to MapLibre
+         */
+
+        map.addSource(
+            "delivery-route",
+            {
+                type: "geojson",
+
+                data: {
+                    type: "Feature",
+
+                    geometry:
+                        route.geometry,
+
+                    properties: {}
+                }
+            }
+        );
+
+
+        /*
+         * Draw route line
+         */
+
+        map.addLayer({
+
+            id: "delivery-route-line",
+
+            type: "line",
+
+            source: "delivery-route",
+
+            layout: {
+                "line-join": "round",
+                "line-cap": "round"
+            },
+
+            paint: {
+
+                "line-color": "#16a34a",
+
+                "line-width": 6,
+
+                "line-opacity": 0.85
+
+            }
+
+        });
+
+
+        /*
+         * Fit map around the route
+         */
+
+        const bounds =
+            new maplibregl.LngLatBounds();
+
+
+        route.geometry.coordinates.forEach(
+            function (coordinate) {
+
+                bounds.extend(coordinate);
+
+            }
+        );
+
+
+        map.fitBounds(
+            bounds,
+            {
+                padding: 80,
+                maxZoom: 15
+            }
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Route error:",
+            error
+        );
+
+
+        const routeInfo =
+            document.getElementById(
+                "route-info"
+            );
+
+
+        if (routeInfo) {
+
+            routeInfo.innerText =
+                "⚠️ Unable to calculate the delivery route.";
+
+        }
+
+    }
+
+});
+
+</script>
+
 {% endblock %}

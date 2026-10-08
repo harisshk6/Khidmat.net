@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.http import JsonResponse
 
 from .forms import ListingForm, ProfileForm, RegisterForm, RequestForm
 from .models import Listing, Profile, Request
@@ -25,9 +26,22 @@ def listings(request):
         qs = qs.filter(city__icontains=city)
     return render(request, "listings.html", {"listings": qs, "q": q, "category": category, "city": city})
 
+@login_required
 def listing_detail(request, pk):
     listing = get_object_or_404(Listing, pk=pk)
-    return render(request, "listing_detail.html", {"listing": listing})
+
+    recipient_profile = Profile.objects.filter(
+        user=request.user
+    ).first()
+
+    return render(
+        request,
+        "listing_detail.html",
+        {
+            "listing": listing,
+            "recipient_profile": recipient_profile,
+        }
+    )
 
 def register(request):
     if request.user.is_authenticated:
@@ -71,7 +85,7 @@ def profile(request):
 @login_required
 def create_listing(request):
     if request.method == "POST":
-        form = ListingForm(request.POST)
+        form = ListingForm(request.POST, request.FILES)
         if form.is_valid():
             listing = form.save(commit=False)
             listing.donor = request.user
@@ -132,3 +146,87 @@ def update_request(request, pk, action):
         req.listing.save(update_fields=["status"])
         messages.success(request, "Donation marked as completed.")
     return redirect("dashboard")
+
+def map_view(request):
+    return render(request, "map.html")
+
+@login_required
+def volunteer_map(request):
+    return render(
+        request,
+        "volunteer_map.html"
+    )
+
+@login_required
+def update_volunteer_location(request):
+
+    if request.method != "POST":
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Only POST requests are allowed."
+            },
+            status=405
+        )
+
+    profile = Profile.objects.get(user=request.user)
+
+    if profile.role != "volunteer":
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Only volunteers can update their location."
+            },
+            status=403
+        )
+
+    latitude = request.POST.get("latitude")
+    longitude = request.POST.get("longitude")
+
+    if not latitude or not longitude:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Latitude and longitude are required."
+            },
+            status=400
+        )
+
+    profile.latitude = latitude
+    profile.longitude = longitude
+
+    profile.save(
+        update_fields=[
+            "latitude",
+            "longitude"
+        ]
+    )
+
+    return JsonResponse(
+        {
+            "success": True,
+            "latitude": latitude,
+            "longitude": longitude
+        }
+    )
+
+@login_required
+def get_volunteer_location(request):
+
+    volunteer = Profile.objects.filter(
+        role="volunteer",
+        latitude__isnull=False,
+        longitude__isnull=False
+    ).first()
+
+    if not volunteer:
+        return JsonResponse({
+            "success": False,
+            "message": "Volunteer location is not available."
+        })
+
+    return JsonResponse({
+        "success": True,
+        "latitude": float(volunteer.latitude),
+        "longitude": float(volunteer.longitude)
+    })

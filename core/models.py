@@ -1,17 +1,33 @@
 from django.contrib.auth.models import User
 from django.db import models
+from cloudinary.models import CloudinaryField
 
 class Profile(models.Model):
     ROLE_CHOICES = [
         ("donor", "Donor"),
         ("requester", "Requester"),
         ("both", "Both"),
+        ("volunteer", "Volunteer"),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="both")
     phone = models.CharField(max_length=30, blank=True)
     city = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
+
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
@@ -38,6 +54,27 @@ class Listing(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     city = models.CharField(max_length=100)
     pickup_details = models.CharField(max_length=255, blank=True)
+
+    image = CloudinaryField(
+        "image",
+        blank=True,
+        null=True
+    )
+
+    pickup_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+
+    pickup_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="available")
     created_at = models.DateTimeField(auto_now_add=True)
 

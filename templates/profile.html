@@ -1,5 +1,403 @@
 {% extends "base.html" %}
+
 {% block title %}My Profile — Khidmat.net{% endblock %}
+
 {% block content %}
-<div class="form-wrap"><div class="form-card wide"><p class="eyebrow">YOUR PROFILE</p><h1>{{ user.get_full_name|default:user.username }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary">Save profile</button></form></div></div>
+
+<div class="form-wrap">
+
+    <div class="form-card wide">
+
+        <p class="eyebrow">YOUR PROFILE</p>
+
+        <h1>{{ user.get_full_name|default:user.username }}</h1>
+
+        <form method="post">
+
+            {% csrf_token %}
+
+            {{ form.as_p }}
+
+            <!-- Recipient Location -->
+            <div class="location-section">
+
+                <h2>📍 Your Location</h2>
+
+                <p class="location-help">
+                    Set your location so donors and delivery volunteers
+                    can find where the donation needs to be delivered.
+                </p>
+
+                <button
+                    type="button"
+                    id="get-location"
+                    class="btn primary"
+                >
+                    📍 Use My Current Location
+                </button>
+
+                <div id="location-status" class="location-status">
+                    Location not selected yet.
+                </div>
+
+                <p class="drag-help">
+                    🖐️ Drag the green pin to adjust your exact location.
+                </p>
+
+                <div id="profile-map"></div>
+
+            </div>
+
+            <button class="btn primary" type="submit">
+                Save profile
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- MapLibre CSS -->
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css"
+>
+
+
+<style>
+
+    .location-section {
+        margin-top: 30px;
+        padding-top: 25px;
+        border-top: 1px solid #e4e8e3;
+    }
+
+    .location-section h2 {
+        margin-bottom: 8px;
+        font-size: 22px;
+    }
+
+    .location-help {
+        color: #66736b;
+        margin-bottom: 15px;
+    }
+
+    .location-status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #f1f3f5;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .drag-help {
+        margin: 12px 0;
+        color: #66736b;
+        font-size: 14px;
+    }
+
+    #profile-map {
+        width: 100%;
+        height: 420px;
+        margin-top: 15px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e4e8e3;
+    }
+
+    @media (max-width: 768px) {
+
+        #profile-map {
+            height: 350px;
+        }
+
+    }
+
+</style>
+
+
+<!-- MapLibre JavaScript -->
+<script type="module">
+
+    import * as maplibregl from
+        "https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs";
+
+
+    /*
+     * Existing saved location
+     *
+     * If the user already has coordinates,
+     * use them.
+     *
+     * Otherwise start in Karachi.
+     */
+
+    const savedLatitude = "{{ form.instance.latitude|default:'' }}";
+    const savedLongitude = "{{ form.instance.longitude|default:'' }}";
+
+
+    let latitude;
+    let longitude;
+
+
+    if (savedLatitude && savedLongitude) {
+
+        latitude = parseFloat(savedLatitude);
+        longitude = parseFloat(savedLongitude);
+
+    } else {
+
+        latitude = 24.8607;
+        longitude = 67.0011;
+
+    }
+
+
+    /*
+     * Create MapLibre map
+     */
+
+    const map = new maplibregl.Map({
+
+        container: "profile-map",
+
+        style:
+            "https://tiles.openfreemap.org/styles/liberty",
+
+        center: [
+            longitude,
+            latitude
+        ],
+
+        zoom: savedLatitude && savedLongitude ? 16 : 11
+
+    });
+
+
+    /*
+     * Navigation controls
+     */
+
+    map.addControl(
+        new maplibregl.NavigationControl(),
+        "top-right"
+    );
+
+
+    /*
+     * Green draggable location marker
+     */
+
+    const marker =
+        new maplibregl.Marker({
+            color: "#16a34a",
+            draggable: true
+        })
+
+        .setLngLat([
+            longitude,
+            latitude
+        ])
+
+        .addTo(map);
+
+
+    /*
+     * Get Django form fields
+     */
+
+    const latitudeInput =
+        document.getElementById("id_latitude");
+
+    const longitudeInput =
+        document.getElementById("id_longitude");
+
+    const status =
+        document.getElementById("location-status");
+
+
+    /*
+     * Update form fields
+     */
+
+    function updateLocation(lat, lng) {
+
+        latitudeInput.value = lat.toFixed(6);
+
+        longitudeInput.value = lng.toFixed(6);
+
+        status.innerText =
+            "📍 Location selected: " +
+            lat.toFixed(6) +
+            ", " +
+            lng.toFixed(6);
+
+    }
+
+
+    /*
+     * If saved coordinates exist,
+     * display them.
+     */
+
+    if (savedLatitude && savedLongitude) {
+
+        updateLocation(
+            latitude,
+            longitude
+        );
+
+    }
+
+
+    /*
+     * Drag marker
+     */
+
+    marker.on("dragend", function () {
+
+        const position =
+            marker.getLngLat();
+
+        updateLocation(
+            position.lat,
+            position.lng
+        );
+
+        status.innerText =
+            "✅ Location adjusted. Click Save profile to save it.";
+
+    });
+
+
+    /*
+     * Use current GPS location
+     */
+
+    document
+        .getElementById("get-location")
+        .addEventListener("click", function () {
+
+            if (!navigator.geolocation) {
+
+                status.innerText =
+                    "❌ Your browser does not support GPS location.";
+
+                return;
+
+            }
+
+
+            status.innerText =
+                "📡 Getting your current location...";
+
+
+            navigator.geolocation.getCurrentPosition(
+
+                function (position) {
+
+                    const lat =
+                        position.coords.latitude;
+
+                    const lng =
+                        position.coords.longitude;
+
+
+                    /*
+                     * Move map
+                     */
+
+                    map.flyTo({
+
+                        center: [
+                            lng,
+                            lat
+                        ],
+
+                        zoom: 16
+
+                    });
+
+
+                    /*
+                     * Move marker
+                     */
+
+                    marker.setLngLat([
+                        lng,
+                        lat
+                    ]);
+
+
+                    /*
+                     * Save values into Django form
+                     */
+
+                    updateLocation(
+                        lat,
+                        lng
+                    );
+
+
+                    status.innerText =
+                        "✅ Current location found. Click Save profile to save it.";
+
+                },
+
+
+                function (error) {
+
+                    console.error(error);
+
+
+                    if (error.code === 1) {
+
+                        status.innerText =
+                            "❌ Location permission was denied.";
+
+                    }
+
+                    else if (error.code === 2) {
+
+                        status.innerText =
+                            "❌ Your location could not be determined.";
+
+                    }
+
+                    else if (error.code === 3) {
+
+                        status.innerText =
+                            "❌ Location request timed out.";
+
+                    }
+
+                    else {
+
+                        status.innerText =
+                            "❌ Unable to get your location.";
+
+                    }
+
+                },
+
+
+                {
+
+                    enableHighAccuracy: true,
+
+                    timeout: 10000,
+
+                    maximumAge: 0
+
+                }
+
+            );
+
+        });
+
+</script>
+
 {% endblock %}

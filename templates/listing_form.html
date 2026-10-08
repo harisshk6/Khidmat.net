@@ -1,6 +1,648 @@
 {% extends "base.html" %}
+
 {% block title %}Donate an Item — Khidmat.net{% endblock %}
+
 {% block content %}
-<div class="form-wrap"><div class="form-card wide"><p class="eyebrow">GIVE ESSENTIALS</p><h1>Post a donation</h1><p>Describe what you can share so someone who needs it can find it.</p>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary full">Post donation</button></form></div></div>
+
+<div class="form-wrap">
+
+    <div class="form-card wide">
+
+        <p class="eyebrow">GIVE ESSENTIALS</p>
+
+        <h1>Post a donation</h1>
+
+        <p>
+            Describe what you can share so someone who needs it can find it.
+        </p>
+
+
+        <form method="post" enctype="multipart/form-data">
+
+            {% csrf_token %}
+
+            {{ form.as_p }}
+
+
+            <!-- Donor Location -->
+
+            <div class="location-section">
+
+                <h3>📍 Pickup Location</h3>
+
+                <p>
+                    Select your current location so recipients can see
+                    where the donation can be picked up.
+                </p>
+
+
+                <button type="button" id="get-pickup-location" class="btn primary">
+                    📍 Use My Current Location
+                </button>
+
+
+                <p id="location-status">
+                    Location not selected yet.
+                </p>
+
+
+                <!-- Coordinates -->
+
+                <div id="coordinates" style="display:none; margin-top:15px;">
+
+                    <p>
+                        <strong>Latitude:</strong>
+                        <span id="latitude-display"></span>
+                    </p>
+
+                    <p>
+                        <strong>Longitude:</strong>
+                        <span id="longitude-display"></span>
+                    </p>
+
+                </div>
+
+
+                <!-- Map -->
+
+                <div id="pickup-map" style="
+                        width:100%;
+                        height:400px;
+                        min-height:400px;
+                        margin-top:20px;
+                        border-radius:12px;
+                        overflow:hidden;
+                        display:none;
+                    ">
+                </div>
+
+                <p id="drag-instruction" style="
+                        display:none;
+                        margin-top:10px;
+                        font-size:14px;
+                        color:#666;
+                    ">
+                    🖐️ Drag the green pin to adjust the exact pickup location.
+                </p>
+
+            </div>
+
+
+            <button class="btn primary full">
+                Post donation
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- MapLibre -->
+
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css">
+
+
+<script type="module">
+
+    import * as maplibregl from
+        "https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs";
+
+
+    /*
+     * HTML elements
+     */
+
+    const locationButton =
+        document.getElementById("get-pickup-location");
+
+    const locationStatus =
+        document.getElementById("location-status");
+
+    const mapContainer =
+        document.getElementById("pickup-map");
+
+    const coordinatesBox =
+        document.getElementById("coordinates");
+
+    const dragInstruction =
+        document.getElementById("drag-instruction");
+
+
+    /*
+     * Map variables
+     */
+
+    let pickupMap = null;
+    let pickupMarker = null;
+
+
+    /*
+     * Get location button
+     */
+
+    locationButton.addEventListener(
+        "click",
+        function () {
+
+
+            /*
+             * Check browser GPS support
+             */
+
+            if (!navigator.geolocation) {
+
+                locationStatus.innerText =
+                    "❌ Your browser does not support GPS.";
+
+                return;
+            }
+
+
+            /*
+             * Show loading message
+             */
+
+            locationStatus.innerText =
+                "📡 Getting your location...";
+
+
+            /*
+             * Get current GPS location
+             */
+
+            navigator.geolocation.getCurrentPosition(
+
+                function (position) {
+
+
+                    /*
+                     * Get GPS coordinates
+                     */
+
+                    const latitude =
+                        position.coords.latitude;
+
+                    const longitude =
+                        position.coords.longitude;
+
+
+                    /*
+                     * Get Django form fields
+                     */
+
+                    const latitudeField =
+                        document.getElementById(
+                            "id_pickup_latitude"
+                        );
+
+                    const longitudeField =
+                        document.getElementById(
+                            "id_pickup_longitude"
+                        );
+
+
+                    /*
+                     * Make sure fields exist
+                     */
+
+                    if (
+                        !latitudeField ||
+                        !longitudeField
+                    ) {
+
+                        locationStatus.innerText =
+                            "❌ Location fields were not found.";
+
+                        console.error(
+                            "pickup_latitude or pickup_longitude field missing"
+                        );
+
+                        return;
+                    }
+
+
+                    /*
+                     * Save GPS coordinates
+                     * into Django form fields
+                     */
+
+                    latitudeField.value =
+                        latitude.toFixed(6);
+
+                    longitudeField.value =
+                        longitude.toFixed(6);
+
+
+                    /*
+                     * Show coordinates
+                     */
+
+                    document.getElementById(
+                        "latitude-display"
+                    ).innerText =
+                        latitude.toFixed(6);
+
+
+                    document.getElementById(
+                        "longitude-display"
+                    ).innerText =
+                        longitude.toFixed(6);
+
+
+                    coordinatesBox.style.display =
+                        "block";
+
+
+                    /*
+                     * Show instruction
+                     */
+
+                    dragInstruction.style.display =
+                        "block";
+
+
+                    /*
+                     * Update status
+                     */
+
+                    locationStatus.innerText =
+                        "✅ Pickup location detected successfully.";
+
+
+                    /*
+                     * Show map
+                     */
+
+                    mapContainer.style.display =
+                        "block";
+
+
+                    /*
+                     * Give browser time to
+                     * calculate map dimensions
+                     */
+
+                    setTimeout(function () {
+
+
+                        /*
+                         * Create map
+                         * if it doesn't exist
+                         */
+
+                        if (!pickupMap) {
+
+
+                            pickupMap =
+                                new maplibregl.Map({
+
+                                    container:
+                                        "pickup-map",
+
+                                    style:
+                                        "https://tiles.openfreemap.org/styles/liberty",
+
+                                    center: [
+                                        longitude,
+                                        latitude
+                                    ],
+
+                                    zoom: 16
+
+                                });
+
+
+                            /*
+                             * Navigation controls
+                             */
+
+                            pickupMap.addControl(
+
+                                new maplibregl.NavigationControl(),
+
+                                "top-right"
+
+                            );
+
+
+                            /*
+                             * Create draggable marker
+                             */
+
+                            pickupMarker =
+                                new maplibregl.Marker({
+
+                                    color: "#16a34a",
+
+                                    draggable: true
+
+                                })
+
+                                    .setLngLat([
+
+                                        longitude,
+
+                                        latitude
+
+                                    ])
+
+                                    .setPopup(
+
+                                        new maplibregl.Popup()
+
+                                            .setHTML(`
+
+                                                <strong>
+                                                    📍 Donation Pickup Location
+                                                </strong>
+
+                                                <br><br>
+
+                                                Latitude:
+                                                ${latitude.toFixed(6)}
+
+                                                <br>
+
+                                                Longitude:
+                                                ${longitude.toFixed(6)}
+
+                                            `)
+
+                                    )
+
+                                    .addTo(pickupMap);
+
+
+                            /*
+                             * Open popup
+                             */
+
+                            pickupMarker.togglePopup();
+
+
+                            /*
+                             * IMPORTANT:
+                             *
+                             * Detect when the donor
+                             * finishes dragging
+                             * the marker.
+                             */
+
+                            pickupMarker.on(
+                                "dragend",
+                                function () {
+
+
+                                    /*
+                                     * Get new marker position
+                                     */
+
+                                    const lngLat =
+                                        pickupMarker.getLngLat();
+
+
+                                    const newLatitude =
+                                        lngLat.lat;
+
+                                    const newLongitude =
+                                        lngLat.lng;
+
+
+                                    /*
+                                     * Update Django fields
+                                     */
+
+                                    latitudeField.value =
+                                        newLatitude.toFixed(6);
+
+                                    longitudeField.value =
+                                        newLongitude.toFixed(6);
+
+
+                                    /*
+                                     * Update displayed
+                                     * coordinates
+                                     */
+
+                                    document.getElementById(
+                                        "latitude-display"
+                                    ).innerText =
+                                        newLatitude.toFixed(6);
+
+
+                                    document.getElementById(
+                                        "longitude-display"
+                                    ).innerText =
+                                        newLongitude.toFixed(6);
+
+
+                                    /*
+                                     * Update popup
+                                     */
+
+                                    pickupMarker.setPopup(
+
+                                        new maplibregl.Popup()
+
+                                            .setHTML(`
+
+                                                <strong>
+                                                    📍 Donation Pickup Location
+                                                </strong>
+
+                                                <br><br>
+
+                                                Latitude:
+                                                ${newLatitude.toFixed(6)}
+
+                                                <br>
+
+                                                Longitude:
+                                                ${newLongitude.toFixed(6)}
+
+                                            `)
+
+                                    );
+
+
+                                    /*
+                                     * Show success message
+                                     */
+
+                                    locationStatus.innerText =
+                                        "✅ Pickup location updated.";
+
+
+                                    /*
+                                     * Open updated popup
+                                     */
+
+                                    pickupMarker.togglePopup();
+
+                                }
+                            );
+
+
+                            /*
+                             * Resize map after loading
+                             */
+
+                            pickupMap.on(
+                                "load",
+                                function () {
+
+                                    pickupMap.resize();
+
+                                }
+                            );
+
+                        }
+
+
+                        /*
+                         * If map already exists
+                         */
+
+                        else {
+
+
+                            /*
+                             * Move map
+                             */
+
+                            pickupMap.setCenter([
+
+                                longitude,
+
+                                latitude
+
+                            ]);
+
+
+                            /*
+                             * Zoom in
+                             */
+
+                            pickupMap.setZoom(16);
+
+
+                            /*
+                             * Move marker
+                             */
+
+                            pickupMarker.setLngLat([
+
+                                longitude,
+
+                                latitude
+
+                            ]);
+
+
+                            /*
+                             * Update popup
+                             */
+
+                            pickupMarker.setPopup(
+
+                                new maplibregl.Popup()
+
+                                    .setHTML(`
+
+                                        <strong>
+                                            📍 Donation Pickup Location
+                                        </strong>
+
+                                        <br><br>
+
+                                        Latitude:
+                                        ${latitude.toFixed(6)}
+
+                                        <br>
+
+                                        Longitude:
+                                        ${longitude.toFixed(6)}
+
+                                    `)
+
+                            );
+
+
+                            /*
+                             * Resize map
+                             */
+
+                            pickupMap.resize();
+
+                        }
+
+                    }, 300);
+
+                },
+
+
+                /*
+                 * GPS error
+                 */
+
+                function (error) {
+
+                    console.error(error);
+
+
+                    if (error.code === 1) {
+
+                        locationStatus.innerText =
+                            "❌ Location permission was denied.";
+
+                    }
+
+                    else if (error.code === 2) {
+
+                        locationStatus.innerText =
+                            "❌ Your location could not be determined.";
+
+                    }
+
+                    else if (error.code === 3) {
+
+                        locationStatus.innerText =
+                            "❌ Location request timed out.";
+
+                    }
+
+                    else {
+
+                        locationStatus.innerText =
+                            "❌ Unable to get your location.";
+
+                    }
+
+                },
+
+
+                /*
+                 * GPS settings
+                 */
+
+                {
+
+                    enableHighAccuracy: true,
+
+                    timeout: 10000,
+
+                    maximumAge: 0
+
+                }
+
+            );
+
+        }
+
+    );
+
+</script>
+
 {% endblock %}

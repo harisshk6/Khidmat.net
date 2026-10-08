@@ -2,7 +2,11 @@
 {% block title %}Find Essential Goods — Khidmat.net{% endblock %}
 {% block content %}
 <div class="container page">
-  <div class="page-title"><p class="eyebrow">COMMUNITY DONATIONS</p><h1>Find what you need.</h1><p>Browse available essential goods shared by people in the community.</p></div>
+  <div class="page-title">
+    <p class="eyebrow">COMMUNITY DONATIONS</p>
+    <h1>Find what you need.</h1>
+    <p>Browse available essential goods shared by people in the community.</p>
+  </div>
   <form class="filters" method="get">
     <input name="q" value="{{ q }}" placeholder="Search food, clothes, medicine...">
     <input name="city" value="{{ city }}" placeholder="City">
@@ -19,15 +23,30 @@
     <button class="btn primary" type="submit">Search</button>
   </form>
   <div class="grid">
-  {% for listing in listings %}
+    {% for listing in listings %}
     <article class="card">
+
+      {% if listing.image %}
+      <img src="{{ listing.image.url }}" alt="{{ listing.title }}" class="donation-image">
+      {% endif %}
+
       <span class="tag">{{ listing.get_category_display }}</span>
+
       <h3>{{ listing.title }}</h3>
+
       <p>{{ listing.description|truncatechars:150 }}</p>
-      <div class="meta"><span>📍 {{ listing.city }}</span><span>Qty: {{ listing.quantity }}</span></div>
-      <a class="card-link" href="{% url 'listing_detail' listing.pk %}">View donation →</a>
+
+      <div class="meta">
+        <span>📍 {{ listing.city }}</span>
+        <span>Qty: {{ listing.quantity }}</span>
+      </div>
+
+      <a class="card-link" href="{% url 'listing_detail' listing.pk %}">
+        View donation →
+      </a>
+
     </article>
-  {% empty %}<div class="empty">No matching donations found.</div>{% endfor %}
+    {% empty %}<div class="empty">No matching donations found.</div>{% endfor %}
   </div>
 </div>
 {% endblock %}

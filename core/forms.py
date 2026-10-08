@@ -15,13 +15,13 @@ class RegisterForm(UserCreationForm):
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ("role", "phone", "city", "bio")
+        fields = ("role", "phone", "city", "bio", "latitude", "longitude")
         widgets = {"bio": forms.Textarea(attrs={"rows": 4})}
 
 class ListingForm(forms.ModelForm):
     class Meta:
         model = Listing
-        fields = ("title", "description", "category", "quantity", "city", "pickup_details")
+        fields = ("title", "description", "category", "quantity", "city", "pickup_details", "pickup_latitude", "pickup_longitude", "image",)
         widgets = {"description": forms.Textarea(attrs={"rows": 5})}
 
 class RequestForm(forms.ModelForm):
